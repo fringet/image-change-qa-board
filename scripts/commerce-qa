@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+runtime_root="${CODEX_PRIMARY_RUNTIME:-${HOME}/.cache/codex-runtimes/codex-primary-runtime/dependencies}"
+node_bin="${COMMERCE_QA_NODE:-${runtime_root}/node/bin/node}"
+node_modules="${COMMERCE_QA_NODE_MODULES:-${runtime_root}/node/node_modules}"
+
+if [ ! -x "$node_bin" ]; then
+  node_bin="$(command -v node)"
+fi
+
+if [ -d "$node_modules" ]; then
+  if [ -n "${NODE_PATH:-}" ]; then
+    export NODE_PATH="${node_modules}:${NODE_PATH}"
+  else
+    export NODE_PATH="$node_modules"
+  fi
+fi
+
+exec "$node_bin" "$(dirname "$0")/commerce-qa.mjs" "$@"

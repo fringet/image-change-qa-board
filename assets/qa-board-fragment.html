@@ -1,0 +1,393 @@
+<div id="image-change-qa-board">
+  <div class="viz-controls icq-toolbar">
+    <label class="form-label icq-picker" for="icq-asset">Revision
+      <select class="form-select" id="icq-asset"></select>
+    </label>
+    <button class="btn btn-ghost" id="icq-prev" type="button">Previous</button>
+    <button class="btn" id="icq-next" type="button">Next</button>
+    <span class="text-muted text-small" id="icq-summary"></span>
+    <button class="btn btn-primary icq-send" id="icq-send-top" type="button">Send QA to Codex</button>
+  </div>
+
+  <div class="icq-layout">
+    <section aria-labelledby="icq-title">
+      <div class="icq-heading">
+        <div>
+          <h3 id="icq-title"></h3>
+          <div class="icq-badges" id="icq-badges"></div>
+          <div class="text-muted text-small" id="icq-files"></div>
+        </div>
+        <span class="viz-badge" id="icq-status"></span>
+      </div>
+
+      <div class="icq-viewer" id="icq-viewer">
+        <img id="icq-before" alt="">
+        <img id="icq-after" alt="">
+        <div class="icq-divider" id="icq-divider" aria-hidden="true"></div>
+        <span class="icq-label icq-before-label" id="icq-before-label">Before</span>
+        <span class="icq-label icq-after-label" id="icq-after-label">After</span>
+      </div>
+      <div id="icq-reveal-controls">
+        <label class="form-label icq-range-label" for="icq-reveal">Reveal after <span id="icq-reveal-value">50%</span></label>
+        <input class="form-range" id="icq-reveal" type="range" min="0" max="100" value="50">
+      </div>
+
+      <section class="icq-references" id="icq-references" hidden>
+        <div class="icq-section-heading">
+          <h3>Reference examples</h3>
+          <span class="text-muted text-small">Select an image to compare with the result</span>
+        </div>
+        <div class="icq-reference-list" id="icq-reference-list"></div>
+        <div class="icq-reference-compare" id="icq-reference-compare" hidden>
+          <figure><img id="icq-reference-focus" alt=""><figcaption id="icq-reference-caption"></figcaption></figure>
+          <figure><img id="icq-reference-after" alt=""><figcaption>Current result</figcaption></figure>
+        </div>
+      </section>
+    </section>
+
+    <section class="card icq-review" aria-labelledby="icq-feedback-title">
+      <h3 id="icq-feedback-title">Revision feedback</h3>
+      <div id="icq-feedback-groups"></div>
+      <h3>Codex QA</h3>
+      <p id="icq-finding"></p>
+      <div class="viz-controls">
+        <button class="btn" id="icq-approve" type="button" aria-pressed="false">Approve</button>
+        <button class="btn" id="icq-needs" type="button" aria-pressed="false">Needs work</button>
+      </div>
+      <label class="form-label" for="icq-notes">Your notes
+        <textarea class="form-control" id="icq-notes" rows="4" placeholder="Optional: what should change?"></textarea>
+      </label>
+      <div class="text-muted text-small" id="icq-state" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <details class="icq-batch">
+    <summary id="icq-batch-summary">Review all</summary>
+    <div class="table-responsive">
+      <table class="table table-sm">
+        <thead><tr><th>Revision</th><th>Decision</th><th>Notes</th></tr></thead>
+        <tbody id="icq-batch-body"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-primary" id="icq-send-all" type="button">Send complete QA to Codex</button>
+    <div class="text-muted text-small" id="icq-send-state" aria-live="polite"></div>
+  </details>
+
+  <details class="icq-register">
+    <summary id="icq-register-summary">Feedback register</summary>
+    <div class="table-responsive">
+      <table class="table table-sm">
+        <thead><tr><th>#</th><th>Round</th><th>Source</th><th>Product / image</th><th>Feedback</th><th>QA</th></tr></thead>
+        <tbody id="icq-register-body"></tbody>
+      </table>
+    </div>
+  </details>
+</div>
+
+<style>
+  #image-change-qa-board {
+    --background:#0b0c0b; --foreground:#f2f4f1; --card:#151716; --card-foreground:#f2f4f1;
+    --muted:#1b1e1c; --muted-foreground:#969c97; --border:rgba(242,244,241,.11);
+    display:grid; gap:1rem; padding:1rem; color-scheme:dark; color:var(--foreground); background:var(--background); border-radius:.75rem;
+  }
+  #image-change-qa-board .icq-toolbar { position:sticky; top:.25rem; z-index:20; padding:.55rem; border:1px solid var(--border); background:var(--background); box-shadow:0 3px 12px color-mix(in srgb, var(--foreground) 10%, transparent); }
+  #image-change-qa-board .icq-picker { min-width:min(32rem, 48vw); margin:0; }
+  #image-change-qa-board .icq-send { margin-left:auto; white-space:nowrap; }
+  #image-change-qa-board .icq-layout { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr); gap:1rem; align-items:start; }
+  #image-change-qa-board .icq-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:.75rem; margin-bottom:.5rem; }
+  #image-change-qa-board .icq-heading h3, #image-change-qa-board .icq-review h3, #image-change-qa-board .icq-section-heading h3 { margin:0 0 .35rem; }
+  #image-change-qa-board .icq-badges { display:flex; flex-wrap:wrap; gap:.35rem; margin:.3rem 0; }
+  #image-change-qa-board .icq-mini-badge { display:inline-flex; padding:.15rem .45rem; border:1px solid var(--border); border-radius:999px; font-size:.78rem; background:var(--card); }
+  #image-change-qa-board .icq-viewer { position:relative; width:100%; aspect-ratio:1; overflow:hidden; background:var(--muted); border:1px solid var(--border); }
+  #image-change-qa-board .icq-viewer img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
+  #image-change-qa-board #icq-after { clip-path:inset(0 50% 0 0); }
+  #image-change-qa-board .icq-divider { position:absolute; inset:0 auto 0 50%; width:2px; background:var(--foreground); transform:translateX(-1px); pointer-events:none; }
+  #image-change-qa-board .icq-label { position:absolute; top:.5rem; padding:.2rem .45rem; background:var(--card); color:var(--card-foreground); border:1px solid var(--border); }
+  #image-change-qa-board .icq-before-label { left:.5rem; }
+  #image-change-qa-board .icq-after-label { right:.5rem; }
+  #image-change-qa-board .icq-range-label { margin-top:.6rem; }
+  #image-change-qa-board .icq-review { display:grid; gap:.7rem; position:sticky; top:5rem; }
+  #image-change-qa-board .icq-review p { margin:0; }
+  #image-change-qa-board .icq-feedback-group + .icq-feedback-group { margin-top:.7rem; }
+  #image-change-qa-board .icq-feedback-group h4 { margin:0 0 .25rem; font-size:.9rem; }
+  #image-change-qa-board .icq-feedback-group ul { margin:0; padding-left:1.2rem; }
+  #image-change-qa-board .icq-section-heading { display:flex; align-items:baseline; justify-content:space-between; gap:.75rem; margin:1rem 0 .5rem; }
+  #image-change-qa-board .icq-reference-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(135px,1fr)); gap:.65rem; }
+  #image-change-qa-board .icq-reference-card { display:grid; gap:.35rem; padding:.45rem; border:1px solid var(--border); border-radius:.45rem; background:var(--card); color:var(--card-foreground); text-align:left; text-decoration:none; cursor:pointer; }
+  #image-change-qa-board .icq-reference-card img { width:100%; aspect-ratio:1; object-fit:contain; background:var(--muted); }
+  #image-change-qa-board .icq-reference-card strong { font-size:.85rem; }
+  #image-change-qa-board .icq-reference-card span { font-size:.78rem; color:var(--muted-foreground); }
+  #image-change-qa-board .icq-reference-compare { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; margin-top:.75rem; }
+  #image-change-qa-board .icq-reference-compare figure { margin:0; }
+  #image-change-qa-board .icq-reference-compare img { width:100%; aspect-ratio:1; object-fit:contain; background:var(--muted); border:1px solid var(--border); }
+  #image-change-qa-board .icq-reference-compare figcaption { margin-top:.25rem; font-size:.82rem; }
+  #image-change-qa-board details summary { cursor:pointer; color:var(--foreground); }
+  #image-change-qa-board details[open] summary { margin-bottom:.6rem; }
+  #image-change-qa-board .icq-batch textarea { min-width:14rem; }
+  #image-change-qa-board .icq-pass { color:var(--foreground); font-weight:500; }
+  @media (max-width:760px) {
+    #image-change-qa-board .icq-toolbar { position:static; }
+    #image-change-qa-board .icq-picker { min-width:100%; width:100%; }
+    #image-change-qa-board .icq-send { width:100%; margin-left:0; }
+    #image-change-qa-board .icq-layout { grid-template-columns:1fr; }
+    #image-change-qa-board .icq-review { position:static; }
+    #image-change-qa-board .icq-batch textarea { min-width:10rem; }
+  }
+</style>
+
+<script>
+  (() => {
+    const data = __QA_DATA__;
+    const root = document.getElementById("image-change-qa-board");
+    const items = data.items;
+    const reviews = {};
+    let current = 0;
+
+    const assetSelect = root.querySelector("#icq-asset");
+    const before = root.querySelector("#icq-before");
+    const after = root.querySelector("#icq-after");
+    const divider = root.querySelector("#icq-divider");
+    const reveal = root.querySelector("#icq-reveal");
+    const notes = root.querySelector("#icq-notes");
+    const approve = root.querySelector("#icq-approve");
+    const needs = root.querySelector("#icq-needs");
+
+    items.forEach((item, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = `${item.round} · ${item.product} — ${item.title}`;
+      assetSelect.appendChild(option);
+    });
+    root.querySelector("#icq-summary").textContent = data.summary;
+
+    function decisionButtons(decision) {
+      approve.setAttribute("aria-pressed", decision === "Approved" ? "true" : "false");
+      needs.setAttribute("aria-pressed", decision === "Needs work" ? "true" : "false");
+      approve.classList.toggle("btn-primary", decision === "Approved");
+      needs.classList.toggle("btn-primary", decision === "Needs work");
+    }
+
+    function reviewedCount() {
+      return items.filter((item) => reviews[item.id]?.decision).length;
+    }
+
+    function updateProgress() {
+      const count = reviewedCount();
+      root.querySelector("#icq-batch-summary").textContent = `Review all · ${count}/${items.length} decided`;
+      root.querySelector("#icq-send-top").textContent = `Send QA to Codex · ${count}/${items.length}`;
+    }
+
+    function syncBatchRow(item) {
+      const row = root.querySelector(`[data-review-row="${item.id}"]`);
+      if (!row) return;
+      row.querySelector("select").value = reviews[item.id]?.decision || "";
+      row.querySelector("textarea").value = reviews[item.id]?.notes || "";
+      updateProgress();
+    }
+
+    function renderBadges(item) {
+      const values = [item.round, item.mode === "new-image" ? "New image" : "Revision", ...item.sourceLabels];
+      root.querySelector("#icq-badges").replaceChildren(...values.map((text) => {
+        const badge = document.createElement("span");
+        badge.className = "icq-mini-badge";
+        badge.textContent = text;
+        return badge;
+      }));
+    }
+
+    function renderFeedback(item) {
+      const groups = new Map();
+      item.feedback.forEach((entry) => {
+        if (!groups.has(entry.source)) groups.set(entry.source, []);
+        groups.get(entry.source).push(entry.text);
+      });
+      const elements = [];
+      groups.forEach((entries, source) => {
+        const section = document.createElement("section");
+        section.className = "icq-feedback-group";
+        const heading = document.createElement("h4");
+        heading.textContent = source === "Codex" ? "Codex notes" : `${source} feedback`;
+        const list = document.createElement("ul");
+        entries.forEach((text) => {
+          const li = document.createElement("li");
+          li.textContent = text;
+          list.appendChild(li);
+        });
+        section.append(heading, list);
+        elements.push(section);
+      });
+      root.querySelector("#icq-feedback-groups").replaceChildren(...elements);
+    }
+
+    function renderReferences(item) {
+      const section = root.querySelector("#icq-references");
+      const list = root.querySelector("#icq-reference-list");
+      const compare = root.querySelector("#icq-reference-compare");
+      list.replaceChildren();
+      compare.hidden = true;
+      section.hidden = item.references.length === 0;
+      item.references.forEach((reference) => {
+        const card = document.createElement(reference.kind === "url" ? "a" : "button");
+        card.className = "icq-reference-card";
+        if (reference.kind === "url") {
+          card.href = reference.url;
+          card.target = "_blank";
+          card.rel = "noreferrer";
+        } else {
+          card.type = "button";
+          const image = document.createElement("img");
+          image.src = reference.image;
+          image.alt = reference.label;
+          card.appendChild(image);
+          card.addEventListener("click", () => {
+            root.querySelector("#icq-reference-focus").src = reference.image;
+            root.querySelector("#icq-reference-focus").alt = reference.label;
+            root.querySelector("#icq-reference-caption").textContent = reference.caption ? `${reference.label} — ${reference.caption}` : reference.label;
+            root.querySelector("#icq-reference-after").src = item.after;
+            root.querySelector("#icq-reference-after").alt = `Current result: ${item.title}`;
+            compare.hidden = false;
+          });
+        }
+        const label = document.createElement("strong");
+        label.textContent = reference.label;
+        card.appendChild(label);
+        if (reference.caption) {
+          const caption = document.createElement("span");
+          caption.textContent = reference.caption;
+          card.appendChild(caption);
+        }
+        list.appendChild(card);
+      });
+    }
+
+    function renderCurrent() {
+      const item = items[current];
+      const saved = reviews[item.id] || {};
+      assetSelect.value = String(current);
+      root.querySelector("#icq-title").textContent = `${item.product} — ${item.title}`;
+      root.querySelector("#icq-files").textContent = item.mode === "new-image"
+        ? `New image: ${item.afterName}`
+        : `Before: ${item.beforeName} · After: ${item.afterName}`;
+      root.querySelector("#icq-status").textContent = `Codex QA: ${item.qaStatus}`;
+      renderBadges(item);
+      renderFeedback(item);
+      renderReferences(item);
+      before.hidden = item.mode === "new-image";
+      divider.hidden = item.mode === "new-image";
+      root.querySelector("#icq-before-label").hidden = item.mode === "new-image";
+      root.querySelector("#icq-reveal-controls").hidden = item.mode === "new-image";
+      root.querySelector("#icq-after-label").textContent = item.mode === "new-image" ? "New image" : "After";
+      if (item.before) before.src = item.before;
+      after.src = item.after;
+      after.style.clipPath = item.mode === "new-image" ? "none" : `inset(0 ${100 - Number(reveal.value)}% 0 0)`;
+      before.alt = item.before ? `Before revision: ${item.title}` : "";
+      after.alt = item.mode === "new-image" ? `New image: ${item.title}` : `After revision: ${item.title}`;
+      root.querySelector("#icq-finding").textContent = item.finding;
+      notes.value = saved.notes || "";
+      decisionButtons(saved.decision || "");
+      root.querySelector("#icq-state").textContent = saved.decision ? `Marked: ${saved.decision}` : "Not reviewed by you yet";
+    }
+
+    function saveCurrentNotes() {
+      const item = items[current];
+      reviews[item.id] = { ...reviews[item.id], notes: notes.value };
+      syncBatchRow(item);
+    }
+
+    function setDecision(decision) {
+      const item = items[current];
+      reviews[item.id] = { ...reviews[item.id], decision, notes: notes.value };
+      decisionButtons(decision);
+      root.querySelector("#icq-state").textContent = `Marked: ${decision}`;
+      syncBatchRow(item);
+    }
+
+    items.forEach((item) => {
+      const row = document.createElement("tr");
+      row.dataset.reviewRow = item.id;
+      const name = document.createElement("td");
+      name.textContent = `${item.round} · ${item.product} — ${item.title}`;
+      const decisionCell = document.createElement("td");
+      const decision = document.createElement("select");
+      decision.className = "form-select";
+      decision.setAttribute("aria-label", `Decision for ${item.title}`);
+      [["", "Not decided"], ["Approved", "Approve"], ["Needs work", "Needs work"]].forEach(([value, label]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        decision.appendChild(option);
+      });
+      decision.addEventListener("change", () => {
+        reviews[item.id] = { ...reviews[item.id], decision: decision.value };
+        if (items[current].id === item.id) renderCurrent();
+        updateProgress();
+      });
+      decisionCell.appendChild(decision);
+      const notesCell = document.createElement("td");
+      const batchNotes = document.createElement("textarea");
+      batchNotes.className = "form-control";
+      batchNotes.rows = 2;
+      batchNotes.setAttribute("aria-label", `Notes for ${item.title}`);
+      batchNotes.placeholder = "Optional notes";
+      batchNotes.addEventListener("input", () => {
+        reviews[item.id] = { ...reviews[item.id], notes: batchNotes.value };
+        if (items[current].id === item.id) notes.value = batchNotes.value;
+      });
+      notesCell.appendChild(batchNotes);
+      row.append(name, decisionCell, notesCell);
+      root.querySelector("#icq-batch-body").appendChild(row);
+    });
+
+    let feedbackNumber = 0;
+    items.forEach((item) => item.feedback.forEach((entry) => {
+      feedbackNumber += 1;
+      const row = document.createElement("tr");
+      [String(feedbackNumber), item.round, entry.source, `${item.product} — ${item.title}`, entry.text, item.qaStatus].forEach((text, index) => {
+        const cell = document.createElement("td");
+        if (index === 0) cell.className = "text-end";
+        if (index === 5) cell.className = "icq-pass";
+        cell.textContent = text;
+        row.appendChild(cell);
+      });
+      root.querySelector("#icq-register-body").appendChild(row);
+    }));
+    root.querySelector("#icq-register-summary").textContent = `All ${feedbackNumber} feedback items`;
+
+    async function sendReview() {
+      saveCurrentNotes();
+      const reviewText = items.map((item) => {
+        const review = reviews[item.id] || {};
+        const references = item.references.length
+          ? item.references.map((reference) => `${reference.label}${reference.caption ? ` — ${reference.caption}` : ""}`).join("; ")
+          : "None";
+        return `- ${item.product} — ${item.title}\n  Revision round: ${item.round}\n  Feedback source: ${item.sourceLabels.join(", ")}\n  Reference examples: ${references}\n  Decision: ${review.decision || "Not decided"}\n  Notes: ${review.notes?.trim() || "No notes"}`;
+      }).join("\n");
+      if (window.openai?.sendFollowUpMessage) {
+        await window.openai.sendFollowUpMessage({
+          title: "Send complete image QA?",
+          prompt: `Complete image QA review\n\n${reviewText}\n\nPlease apply all Needs work feedback together. Preserve every approved image, reference requirement, and all unmentioned elements.`
+        });
+      } else {
+        root.querySelector("#icq-send-state").textContent = "Complete QA is ready to send in Codex.";
+      }
+    }
+
+    assetSelect.addEventListener("change", () => { saveCurrentNotes(); current = Number(assetSelect.value); renderCurrent(); });
+    root.querySelector("#icq-prev").addEventListener("click", () => { saveCurrentNotes(); current = (current - 1 + items.length) % items.length; renderCurrent(); });
+    root.querySelector("#icq-next").addEventListener("click", () => { saveCurrentNotes(); current = (current + 1) % items.length; renderCurrent(); });
+    reveal.addEventListener("input", () => {
+      const value = Number(reveal.value);
+      after.style.clipPath = `inset(0 ${100 - value}% 0 0)`;
+      divider.style.left = `${value}%`;
+      root.querySelector("#icq-reveal-value").textContent = `${value}%`;
+    });
+    notes.addEventListener("input", saveCurrentNotes);
+    approve.addEventListener("click", () => setDecision("Approved"));
+    needs.addEventListener("click", () => setDecision("Needs work"));
+    root.querySelector("#icq-send-top").addEventListener("click", sendReview);
+    root.querySelector("#icq-send-all").addEventListener("click", sendReview);
+
+    renderCurrent();
+    updateProgress();
+  })();
+</script>

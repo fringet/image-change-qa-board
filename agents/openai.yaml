@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commerce Image QA"
+  short_description: "Create and review commerce imagery quickly"
+  default_prompt: "Use $image-change-qa-board to create or revise these e-commerce images and open a focused review with channel checks."

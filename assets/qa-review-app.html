@@ -1,0 +1,1188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Image Review</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f2f4f1;
+      --muted: #969c97;
+      --paper: #0b0c0b;
+      --panel: #141615;
+      --panel-strong: #1b1e1c;
+      --card: rgba(21, 23, 22, .94);
+      --line: rgba(242, 244, 241, .11);
+      --accent: #68d3a2;
+      --accent-soft: rgba(68, 184, 132, .14);
+      --danger: #f07a70;
+      --danger-soft: rgba(219, 83, 73, .14);
+      --warn: #dfb465;
+      --image-bg: #111311;
+      --shadow: 0 20px 64px rgba(0, 0, 0, .42);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-synthesis: none;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--paper); color: var(--ink); }
+    button, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, textarea:focus-visible { outline: 3px solid rgba(104, 211, 162, .28); outline-offset: 2px; }
+    [hidden] { display: none !important; }
+    #root, .app { width: 100%; height: 100dvh; }
+    .app { display: grid; grid-template-rows: 58px minmax(0, 1fr); }
+    .topbar {
+      position: relative; z-index: 30; padding: 8px 12px; display: grid;
+      grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr) minmax(120px, 1fr);
+      align-items: center; gap: 12px; border-bottom: 1px solid var(--line); background: rgba(13, 15, 14, .9); backdrop-filter: blur(16px);
+    }
+    .project { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .mark { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; border-radius: 9px; background: var(--ink); color: #101210; font-size: 11px; font-weight: 800; }
+    .project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 720; }
+    .item-meta { min-width: 0; text-align: center; }
+    .item-meta strong, .item-meta span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item-meta strong { font-size: 13px; letter-spacing: -.01em; }
+    .item-meta span { margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .top-actions { justify-self: end; display: flex; align-items: center; gap: 6px; }
+    .icon-button, .soft-button, .primary-button, .dock-button {
+      border: 1px solid var(--line); background: var(--card); font-weight: 720; transition: background .12s, border-color .12s, transform .12s;
+    }
+    .icon-button:hover, .soft-button:hover, .dock-button:hover { border-color: rgba(242,244,241,.22); background: var(--panel-strong); }
+    .icon-button:active, .soft-button:active, .primary-button:active, .dock-button:active { transform: translateY(1px); }
+    .icon-button { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; border-radius: 10px; font-size: 16px; }
+    .soft-button { min-height: 36px; padding: 7px 10px; border-radius: 10px; font-size: 11px; }
+    .primary-button { min-height: 36px; padding: 7px 12px; border-color: var(--ink); border-radius: 10px; background: var(--ink); color: #101210; font-size: 11px; }
+    .progress-button { display: flex; align-items: center; gap: 6px; }
+    .progress-dot { width: 7px; height: 7px; border-radius: 50%; background: #535854; }
+    .progress-dot.complete { background: var(--accent); }
+    .stage { position: relative; min-height: 0; overflow: hidden; background: #080908; }
+    .viewer { position: absolute; inset: 16px 16px 86px; overflow: hidden; border: 1px solid rgba(242,244,241,.06); border-radius: 14px; background: var(--image-bg); }
+    .viewer.pin-mode { cursor: crosshair; }
+    .media-layer { position: absolute; inset: 0; transform: scale(1); transform-origin: center; transition: transform .16s ease; }
+    .media-layer.zoomed { transform: scale(2.15); cursor: zoom-out; }
+    .media-layer img, .split-pane img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+    .after-layer { clip-path: none; }
+    .viewer.mode-before .after-layer { display: none; }
+    .viewer.mode-swipe .after-layer { clip-path: inset(0 50% 0 0); }
+    .viewer.mode-diff { background: #111; }
+    .viewer.mode-diff .after-layer { mix-blend-mode: difference; opacity: .9; }
+    .swipe-divider { position: absolute; z-index: 8; top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-1px); background: var(--ink); box-shadow: 0 0 0 1px rgba(0,0,0,.45); pointer-events: none; }
+    .swipe-divider::after { content: "↔"; position: absolute; top: 50%; left: 50%; width: 32px; height: 32px; transform: translate(-50%, -50%); display: grid; place-items: center; border-radius: 50%; background: var(--ink); color: #101210; box-shadow: var(--shadow); font-size: 13px; }
+    .swipe-hit { position: absolute; z-index: 9; inset: 0; cursor: ew-resize; }
+    .split-view { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #303431; }
+    .split-pane { position: relative; overflow: hidden; background: var(--image-bg); }
+    .mode-label { position: absolute; z-index: 16; top: 10px; left: 10px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: rgba(17,19,18,.86); backdrop-filter: blur(10px); font-size: 10px; font-weight: 760; }
+    .gallery { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(220px, 26%) minmax(0, 1fr); gap: 1px; background: #303431; }
+    .gallery-anchor { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; background: var(--image-bg); }
+    .gallery-anchor img { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+    .gallery-anchor-copy { padding: 9px 11px; border-top: 1px solid var(--line); background: rgba(17,19,18,.92); }
+    .gallery-anchor-copy strong { display: block; color: var(--accent); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
+    .gallery-anchor-copy em { color: var(--muted); font-style: normal; font-size: 8px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .gallery-anchor-copy p { margin: 5px 0 0; font-size: 11px; line-height: 1.45; }
+    .gallery-grid { min-height: 0; overflow: auto; padding: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; align-content: start; background: var(--image-bg); }
+    .tile { position: relative; padding: 0; overflow: visible; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-strong); text-align: left; transition: transform .14s ease, border-color .12s, box-shadow .14s; }
+    .tile img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 9px 9px 0 0; background: var(--image-bg); }
+    .tile:hover, .tile:focus-visible { z-index: 5; transform: scale(1.55); border-color: rgba(242,244,241,.3); box-shadow: var(--shadow); }
+    .tile.current { border-color: var(--ink); }
+    .version { position: relative; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-strong); text-align: left; transition: border-color .12s, transform .12s; }
+    .version:hover { border-color: rgba(242,244,241,.3); transform: translateY(-2px); }
+    .version.current { border-color: var(--ink); }
+    .version.active { border-color: var(--accent); }
+    .version img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--image-bg); }
+    .version-copy { padding: 7px 8px; }
+    .version-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+    .version-copy time { display: block; margin-top: 2px; color: var(--muted); font-size: 8px; }
+    .version-copy p { margin: 5px 0 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--muted); font-size: 9px; line-height: 1.4; }
+    .version-flow { position: absolute; z-index: 2; top: 8px; left: 8px; padding: 2px 6px; border-radius: 6px; background: rgba(8,9,8,.82); font-size: 8px; font-weight: 800; letter-spacing: .04em; }
+    .tile.other-round { cursor: default; opacity: .78; }
+    .tile.other-round:hover { opacity: 1; }
+    .tile-copy { display: flex; align-items: center; gap: 6px; padding: 6px 7px; }
+    .tile-copy strong { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+    .tile-dot { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: #4d534f; }
+    .tile-dot.approved { background: var(--accent); }
+    .tile-dot.needs { background: var(--danger); }
+    .annotation-layer { position: absolute; z-index: 14; inset: 0; pointer-events: none; }
+    .pin { position: absolute; width: 26px; height: 26px; transform: translate(-50%, -50%); display: grid; place-items: center; border: 2px solid var(--ink); border-radius: 50%; background: var(--danger); color: #101210; box-shadow: 0 3px 12px rgba(0,0,0,.45); font-size: 10px; font-weight: 800; }
+    .pin-hint { position: absolute; z-index: 20; left: 50%; top: 12px; transform: translateX(-50%); padding: 7px 10px; border-radius: 9px; background: rgba(8,9,8,.9); color: var(--ink); font-size: 11px; pointer-events: none; }
+    .dock-wrap { position: absolute; z-index: 24; left: 50%; bottom: 16px; transform: translateX(-50%); display: grid; justify-items: center; gap: 8px; }
+    .dock { display: flex; align-items: center; gap: 5px; padding: 5px; border: 1px solid var(--line); border-radius: 15px; background: var(--card); box-shadow: var(--shadow); backdrop-filter: blur(18px); }
+    .dock-button { min-width: 78px; min-height: 42px; padding: 8px 12px; border-radius: 11px; font-size: 11px; }
+    .dock-button.icon-only { min-width: 42px; width: 42px; padding: 0; font-size: 18px; }
+    .dock-button.approve[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+    .dock-button.change[aria-pressed="true"] { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+    .dock-button:disabled { opacity: .34; cursor: not-allowed; }
+    .compare-menu { display: grid; gap: 3px; max-width: min(1120px, calc(100vw - 24px)); padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); box-shadow: var(--shadow); backdrop-filter: blur(16px); }
+    .compare-row { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: thin; }
+    .compare-row::-webkit-scrollbar { height: 4px; }
+    .compare-row::-webkit-scrollbar-thumb { border-radius: 4px; background: rgba(242,244,241,.18); }
+    .compare-row + .compare-row { padding-top: 3px; border-top: 1px solid var(--line); }
+    .compare-legend { flex: 0 0 auto; padding: 0 3px 0 6px; color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .compare-menu button { min-height: 32px; padding: 6px 9px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 720; white-space: nowrap; }
+    .compare-menu button[aria-pressed="true"] { background: var(--ink); color: #101210; }
+    .compare-menu button.identity[aria-pressed="true"] { background: var(--accent); }
+    .compare-menu button.own { box-shadow: inset 0 -2px 0 var(--accent); }
+    .truth-strip {
+      position: absolute; z-index: 17; left: 10px; bottom: 10px; width: min(320px, 48%); padding: 8px 10px;
+      border: 1px solid var(--line); border-left: 2px solid var(--accent); border-radius: 10px;
+      background: rgba(17,19,18,.9); backdrop-filter: blur(10px); box-shadow: var(--shadow);
+    }
+    .truth-strip h3 { margin: 0 0 5px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; color: var(--accent); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+    .truth-strip h3 em { flex: 0 0 auto; color: var(--muted); font-style: normal; font-size: 8px; letter-spacing: .04em; }
+    .truth-strip.asked { border-left-color: var(--ink); }
+    .truth-strip.asked h3 { color: var(--ink); }
+    .truth-strip .source { margin-right: 5px; color: var(--muted); font-size: 8px; font-weight: 800; text-transform: uppercase; }
+    .strip-caption { margin: 0 0 5px; color: var(--ink); font-size: 11px; line-height: 1.45; }
+    .truth-strip ul { margin: 0; padding-left: 14px; font-size: 11px; line-height: 1.45; }
+    .truth-strip button { margin-top: 5px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 9px; font-weight: 760; }
+    .pin-context { display: block; margin-bottom: 3px; color: var(--accent); font-size: 9px; font-weight: 760; }
+    .reference.identity { border-color: rgba(104,211,162,.4); }
+    .reference.identity[aria-pressed="true"] { border-color: var(--accent); }
+    .composer {
+      width: min(620px, calc(100vw - 24px)); max-height: min(48vh, 440px); overflow: auto; padding: 12px;
+      border: 1px solid var(--line); border-radius: 15px; background: rgba(20,22,21,.97); box-shadow: var(--shadow); backdrop-filter: blur(18px);
+    }
+    .composer-head { margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .composer-head strong { font-size: 12px; }
+    .composer-head span { color: var(--muted); font-size: 10px; }
+    textarea { width: 100%; min-height: 74px; padding: 9px 10px; resize: vertical; border: 1px solid var(--line); border-radius: 10px; background: #0e100f; font-size: 12px; line-height: 1.45; }
+    textarea.invalid { border-color: var(--danger); background: #1b1110; }
+    .composer-actions { margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+    .composer-actions .spacer { flex: 1; }
+    .pin-list { margin-top: 8px; display: grid; gap: 6px; }
+    .pin-row { display: grid; grid-template-columns: 24px 1fr 28px; gap: 6px; align-items: start; }
+    .pin-number { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--danger); color: #101210; font-size: 10px; font-weight: 800; }
+    .pin-row textarea { min-height: 44px; padding: 7px; font-size: 11px; }
+    .delete-pin { width: 28px; height: 28px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 18px; }
+    .layer { position: fixed; z-index: 70; inset: 0; display: none; background: rgba(0,0,0,.62); backdrop-filter: blur(5px); }
+    .layer.open { display: block; }
+    .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(390px, 94vw); overflow: auto; background: var(--panel); box-shadow: -18px 0 60px rgba(0,0,0,.5); }
+    .drawer-head { position: sticky; z-index: 2; top: 0; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); background: rgba(20,22,21,.94); backdrop-filter: blur(14px); }
+    .drawer-head strong { font-size: 13px; }
+    .drawer-section { padding: 14px; border-bottom: 1px solid var(--line); }
+    .drawer-section h2 { margin: 0 0 9px; color: var(--muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+    .brief-list, .truth-list { margin: 0; padding-left: 17px; font-size: 12px; line-height: 1.5; }
+    .source { margin-right: 5px; color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+    .qa-copy { margin: 0; font-size: 12px; line-height: 1.5; }
+    .check-summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; }
+    .check-summary strong.pass { color: var(--accent); }
+    .check-summary strong.issue { color: var(--warn); }
+    details { margin-top: 9px; }
+    summary { cursor: pointer; color: var(--muted); font-size: 10px; font-weight: 720; }
+    .check-list { margin-top: 8px; display: grid; gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: var(--line); }
+    .check { padding: 7px 8px; display: grid; grid-template-columns: 8px 1fr auto; gap: 7px; align-items: center; background: var(--panel-strong); font-size: 10px; }
+    .check i { width: 6px; height: 6px; border-radius: 50%; background: #718078; }
+    .check.pass i { background: var(--accent); }
+    .check.warn i { background: var(--warn); }
+    .check.fail i { background: var(--danger); }
+    .check span:last-child { color: var(--muted); }
+    .references { display: flex; gap: 7px; overflow-x: auto; }
+    .reference { width: 74px; flex: 0 0 74px; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-strong); text-align: left; }
+    .reference img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--image-bg); }
+    .reference span { display: block; padding: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+    .queue-layer { display: none; place-items: center; padding: 18px; }
+    .queue-layer.open { display: grid; }
+    .queue-panel { width: min(880px, 96vw); max-height: 88vh; overflow: auto; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: var(--shadow); }
+    .queue-head { padding: 2px 2px 10px; display: flex; align-items: center; justify-content: space-between; }
+    .queue-head strong { font-size: 13px; }
+    .queue-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+    .queue-item { min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel-strong); text-align: left; }
+    .queue-item.current { border-color: var(--accent); }
+    .queue-item img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 7px; background: var(--image-bg); }
+    .queue-copy { padding: 7px 2px 1px; }
+    .queue-copy strong, .queue-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .queue-copy strong { font-size: 11px; }
+    .queue-copy span { margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .status { margin-top: 5px; font-size: 9px; font-weight: 800; }
+    .status.approved { color: var(--accent); }
+    .status.needs { color: var(--danger); }
+    .reference-layer { display: none; place-items: center; padding: 18px; background: rgba(16,18,17,.72); }
+    .reference-layer.open { display: grid; }
+    .reference-panel { position: relative; width: min(1060px, 96vw); padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: var(--shadow); }
+    .reference-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .reference-compare figure { margin: 0; }
+    .reference-compare img { width: 100%; max-height: 72vh; object-fit: contain; background: var(--image-bg); }
+    .reference-compare figcaption { margin-top: 6px; font-size: 10px; }
+    .reference-close { position: absolute; z-index: 2; top: 18px; right: 18px; }
+    .toast { position: fixed; z-index: 100; left: 50%; bottom: 16px; max-width: calc(100vw - 24px); padding: 9px 12px; transform: translate(-50%, 14px); opacity: 0; border-radius: 9px; background: var(--ink); color: #101210; box-shadow: var(--shadow); pointer-events: none; font-size: 11px; transition: opacity .16s, transform .16s; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .loading { height: 100dvh; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
+    .error { max-width: 560px; margin: 70px auto; padding: 22px; border: 1px solid rgba(240,122,112,.38); border-radius: 14px; background: var(--panel); }
+    @media (max-width: 700px) {
+      .app { grid-template-rows: 52px minmax(0, 1fr); }
+      .topbar { padding: 7px 8px; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 7px; }
+      .project-name, .checks-label { display: none; }
+      .mark { width: 30px; height: 30px; }
+      .item-meta { text-align: left; }
+      .item-meta strong { font-size: 11px; }
+      .item-meta span { font-size: 9px; }
+      .icon-button { width: 34px; height: 34px; }
+      .soft-button { min-height: 34px; padding: 6px 8px; }
+      .primary-button { min-height: 34px; padding: 6px 9px; }
+      .viewer { inset: 8px 8px 78px; border-radius: 10px; }
+      .split-view { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+      .gallery { grid-template-columns: 1fr; grid-template-rows: minmax(120px, 32%) minmax(0, 1fr); }
+      .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+      .tile:hover, .tile:focus-visible { transform: none; }
+      .dock-wrap { bottom: 10px; }
+      .dock { gap: 3px; padding: 4px; }
+      .dock-button { min-width: 67px; min-height: 40px; padding: 7px 8px; font-size: 10px; }
+      .dock-button.icon-only { min-width: 38px; width: 38px; }
+      .compare-menu { max-width: calc(100vw - 18px); }
+      .truth-strip { width: min(280px, 72%); }
+      .composer { max-height: 44vh; }
+      .queue-panel { max-height: 94vh; }
+      .queue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .reference-compare { grid-template-columns: 1fr; max-height: 86vh; overflow: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root" class="loading">Loading review…</div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script>
+    (() => {
+      const root = document.getElementById("root");
+      const toastNode = document.getElementById("toast");
+      let project;
+      let reviews = {};
+      let submittedAt = null;
+      let current = 0;
+      let viewMode = "after";
+      let leftSlot = "before";
+      let truthStripOn = true;
+      let truthExpanded = false;
+      let galleryOpen = false;
+      let galleryItems = null;
+      let historyOpen = false;
+      let historyLane = null;
+      let pinnedVersion = null;
+      let heldMode = null;
+      let swipe = 50;
+      let zoomed = false;
+      let compareOpen = false;
+      let composerOpen = false;
+      let pinMode = false;
+      let dirty = false;
+      let saveTimer = null;
+      let toastTimer = null;
+      let eventSource = null;
+      let liveBoardId = null;
+      let missedWhileHidden = false;
+      let reportedReset = "";
+      let releaseStreamSlot = null;
+      let pollTimer = null;
+      const STREAM_SLOTS = 2;
+      const POLL_MS = 15_000;
+      const RECONCILE_MS = 60_000;
+      let pendingRefresh = false;
+
+      function slotLabel(value) {
+        return String(value ?? "").replace(/\.(jpe?g|png|webp|gif|tiff?|avif)$/i, "");
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[character]);
+      }
+
+      function resetKey(dropped) {
+        return (dropped || []).map((entry) => `${entry.id}:${entry.reason}`).sort().join("|");
+      }
+
+      // The same reset is still true on every later load; say it once.
+      function reportReset(dropped) {
+        if (!dropped?.length) return;
+        const key = resetKey(dropped);
+        if (key === reportedReset) return;
+        reportedReset = key;
+        const reasons = [...new Set(dropped.map((entry) => entry.reason))].join(" · ");
+        toast(`${dropped.length} decision${dropped.length === 1 ? " was" : "s were"} reset — ${reasons}. Review ${dropped.length === 1 ? "it" : "them"} again.`);
+      }
+
+      function toast(message) {
+        toastNode.textContent = message;
+        toastNode.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastNode.classList.remove("show"), 2400);
+      }
+
+      function reviewFor(item) {
+        if (!reviews[item.id]) reviews[item.id] = { versionHash: item.afterSha256, decision: "", notes: "", annotations: [] };
+        if (!Array.isArray(reviews[item.id].annotations)) reviews[item.id].annotations = [];
+        return reviews[item.id];
+      }
+
+      function complete(item) {
+        const review = reviewFor(item);
+        if (!review.decision) return false;
+        if (review.decision === "Needs work") return Boolean(review.notes.trim() || review.annotations.some((annotation) => annotation.text.trim()));
+        return true;
+      }
+
+      function progress() {
+        const completed = project.items.filter(complete).length;
+        return { completed, total: project.items.length };
+      }
+
+      function scheduleSave() {
+        submittedAt = null;
+        dirty = true;
+        if (document.getElementById("submit")) renderHeader();
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveNow, 350);
+      }
+
+      // `keepalive` is only needed when the page is going away, and it costs a 64 KB
+      // body cap that a fully reviewed board can reach. Ordinary saves use a normal
+      // request; a dropped connection is retried once before the reviewer is told.
+      async function saveNow(options) {
+        const unloading = options?.unloading === true;
+        const retry = options?.retry === true;
+        clearTimeout(saveTimer);
+        if (!dirty) return;
+        try {
+          const response = await fetch("api/review", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reviews }),
+            ...(unloading ? { keepalive: true } : {}),
+          });
+          if (!response.ok) throw new Error(`Could not save (${response.status})`);
+          dirty = false;
+          if (pendingRefresh && !composerOpen) {
+            pendingRefresh = false;
+            refreshProject();
+          }
+        } catch (error) {
+          if (!unloading && !retry) {
+            setTimeout(() => saveNow({ retry: true }), 700);
+            return;
+          }
+          if (!unloading) toast("Could not save that change. It will be saved with your next decision.");
+        }
+      }
+
+      function renderShell() {
+        root.className = "app";
+        root.innerHTML = `
+          <header class="topbar">
+            <div class="project"><span class="mark">QA</span><span class="project-name">${escapeHtml(project.projectName)}</span></div>
+            <div class="item-meta"><strong id="item-title"></strong><span id="item-subtitle"></span></div>
+            <div class="top-actions">
+              <button class="soft-button progress-button" id="checks" type="button"><i class="progress-dot" id="check-dot"></i><span class="checks-label" id="check-copy">Details</span></button>
+              <button class="icon-button" id="history" type="button" aria-label="See every version of this image over time (H)" title="See every version of this image over time (H)">◷</button>
+              <button class="icon-button" id="gallery" type="button" aria-label="Compare every image of this product (G)" title="Compare every image of this product (G)">▦</button>
+              <button class="icon-button" id="queue" type="button" aria-label="Open review queue">☷</button>
+              <button class="primary-button" id="submit" type="button" hidden>Send to Codex</button>
+            </div>
+          </header>
+          <main class="stage">
+            <div class="viewer" id="viewer"></div>
+            <div class="dock-wrap">
+              <div class="composer" id="composer" hidden></div>
+              <div class="compare-menu" id="compare-menu" hidden></div>
+              <nav class="dock" aria-label="Review actions">
+                <button class="dock-button icon-only" id="previous" type="button" aria-label="Previous image">‹</button>
+                <button class="dock-button" id="compare" type="button">Compare</button>
+                <button class="dock-button approve" id="approve" type="button">Approve</button>
+                <button class="dock-button change" id="change" type="button">Change</button>
+                <button class="dock-button icon-only" id="next" type="button" aria-label="Next image">›</button>
+              </nav>
+            </div>
+          </main>
+          <div class="layer" id="details-layer" aria-hidden="true"><aside class="drawer"><div class="drawer-head"><strong>Review details</strong><button class="icon-button" id="close-details" type="button" aria-label="Close details">×</button></div><div id="details"></div></aside></div>
+          <div class="layer queue-layer" id="queue-layer" aria-hidden="true"><section class="queue-panel"><div class="queue-head"><strong>Review queue</strong><button class="icon-button" id="close-queue" type="button" aria-label="Close review queue">×</button></div><div class="queue-grid" id="queue-grid"></div></section></div>
+          <div class="layer reference-layer" id="reference-layer" aria-hidden="true"><section class="reference-panel"><button class="icon-button reference-close" id="close-reference" type="button" aria-label="Close reference">×</button><div class="reference-compare"><figure><img id="reference-image" alt=""><figcaption id="reference-caption"></figcaption></figure><figure><img id="reference-result" alt=""><figcaption>Current result</figcaption></figure></div></section></div>
+        `;
+        bindShell();
+      }
+
+      function bindShell() {
+        document.getElementById("previous").addEventListener("click", () => navigate(-1));
+        document.getElementById("next").addEventListener("click", () => navigate(1));
+        document.getElementById("approve").addEventListener("click", approveCurrent);
+        document.getElementById("change").addEventListener("click", toggleComposer);
+        document.getElementById("compare").addEventListener("click", () => { compareOpen = !compareOpen; composerOpen = false; pinMode = false; renderBottom(); renderViewer(); });
+        document.getElementById("checks").addEventListener("click", () => toggleLayer("details-layer", true));
+        document.getElementById("history").addEventListener("click", toggleHistory);
+        document.getElementById("gallery").addEventListener("click", toggleGallery);
+        document.getElementById("queue").addEventListener("click", () => toggleLayer("queue-layer", true));
+        document.getElementById("submit").addEventListener("click", submitReview);
+        document.getElementById("close-details").addEventListener("click", () => toggleLayer("details-layer", false));
+        document.getElementById("close-queue").addEventListener("click", () => toggleLayer("queue-layer", false));
+        document.getElementById("close-reference").addEventListener("click", () => toggleLayer("reference-layer", false));
+        ["details-layer", "queue-layer", "reference-layer"].forEach((id) => document.getElementById(id).addEventListener("click", (event) => { if (event.target.id === id) toggleLayer(id, false); }));
+        document.addEventListener("keydown", handleKeyDown);
+        document.addEventListener("keyup", handleKeyUp);
+        window.addEventListener("pagehide", () => saveNow({ unloading: true }));
+      }
+
+      function currentItem() { return project.items[current]; }
+
+      // The right side of the canvas is always the result. The left side is a stack of
+      // optional slots: the prior round, then every registered product-truth anchor.
+      function slotsFor(item) {
+        // Name the version being compared against. A before that is deliberately not
+        // the previous version must say so rather than imply lineage it does not have.
+        const detached = item.beforeSource === "explicit" && !item.parentId;
+        const named = item.beforeRound && item.beforeSource !== "legacy";
+        const slots = item.before
+          ? [{
+            key: "before",
+            kind: "before",
+            label: `${detached ? "Baseline" : "Before"}${named ? ` · ${item.beforeRound}` : ""}`,
+            caption: detached
+              ? "Chosen baseline — not this image's immediately previous version"
+              : item.beforeSource === "derived"
+                ? "This image's immediately previous version"
+                : "The version this image was compared against",
+            src: item.before,
+          }]
+          : [];
+        if (pinnedVersion && pinnedVersion.itemId === item.id) {
+          slots.push({
+            key: "version",
+            kind: "version",
+            label: pinnedVersion.round,
+            caption: `Version recorded ${pinnedVersion.recordedAt.slice(0, 10)}`,
+            src: pinnedVersion.src,
+          });
+        }
+        for (const reference of item.references || []) {
+          if (reference.role !== "identity" || reference.kind !== "image") continue;
+          slots.push({
+            key: `identity:${reference.index}`,
+            kind: "identity",
+            label: slotLabel(reference.label),
+            caption: reference.caption || "",
+            origin: reference.inherited ? "Product truth" : "This image",
+            src: reference.image,
+          });
+        }
+        return slots;
+      }
+
+      function activeSlot(item = currentItem()) {
+        const slots = slotsFor(item);
+        return slots.find((slot) => slot.key === leftSlot) || slots[0] || null;
+      }
+
+      function resetSlot(item) {
+        if (pinnedVersion && pinnedVersion.itemId !== item.id) pinnedVersion = null;
+        if (historyLane && historyLane.itemId !== item.id) historyLane = null;
+        const slots = slotsFor(item);
+        leftSlot = slots[0]?.key || "before";
+        truthExpanded = false;
+      }
+
+      function defaultViewMode(item) { return slotsFor(item).length ? "split" : "after"; }
+
+      function navigate(delta) {
+        composerOpen = false;
+        compareOpen = false;
+        pinMode = false;
+        zoomed = false;
+        current = (current + delta + project.items.length) % project.items.length;
+        resetSlot(currentItem());
+        viewMode = defaultViewMode(currentItem());
+        renderAll();
+      }
+
+      function goTo(index, options) {
+        const keepSlot = options?.keepSlot === true;
+        const previousSlot = leftSlot;
+        current = index;
+        composerOpen = false;
+        compareOpen = false;
+        pinMode = false;
+        zoomed = false;
+        resetSlot(currentItem());
+        if (keepSlot && slotsFor(currentItem()).some((slot) => slot.key === previousSlot)) leftSlot = previousSlot;
+        viewMode = defaultViewMode(currentItem());
+        toggleLayer("queue-layer", false);
+        renderAll();
+      }
+
+      function handleKeyDown(event) {
+        if (["INPUT", "TEXTAREA"].includes(event.target.tagName)) return;
+        if (event.key === "ArrowLeft") navigate(-1);
+        if (event.key === "ArrowRight") navigate(1);
+        if (event.key.toLowerCase() === "a") approveCurrent();
+        if (event.key.toLowerCase() === "n") { composerOpen = true; compareOpen = false; renderBottom(); }
+        if (event.key.toLowerCase() === "i") toggleLayer("details-layer", true);
+        if (event.key.toLowerCase() === "c") { compareOpen = !compareOpen; composerOpen = false; renderBottom(); renderViewer(); }
+        if (event.key.toLowerCase() === "s") cycleSlot(event.shiftKey ? -1 : 1);
+        if (event.key.toLowerCase() === "t") { truthStripOn = !truthStripOn; renderViewer(); }
+        if (event.key.toLowerCase() === "g") toggleGallery();
+        if (event.key.toLowerCase() === "h") toggleHistory();
+        if (/^[1-9]$/.test(event.key)) selectSlot(Number(event.key) - 1);
+        if (event.key === " " && activeSlot() && heldMode === null) {
+          event.preventDefault();
+          heldMode = viewMode;
+          viewMode = "before";
+          renderViewer();
+        }
+        if (event.key === "Escape") {
+          composerOpen = false;
+          compareOpen = false;
+          pinMode = false;
+          galleryOpen = false;
+          historyOpen = false;
+          ["details-layer", "queue-layer", "reference-layer"].forEach((id) => toggleLayer(id, false));
+          renderBottom();
+          renderViewer();
+        }
+      }
+
+      function handleKeyUp(event) {
+        if (event.key === " " && heldMode !== null) {
+          viewMode = heldMode;
+          heldMode = null;
+          renderViewer();
+        }
+      }
+
+      function selectSlot(index) {
+        const slots = slotsFor(currentItem());
+        if (!slots[index] || slots[index].key === leftSlot) return;
+        leftSlot = slots[index].key;
+        truthExpanded = false;
+        if (!galleryOpen && viewMode === "after") viewMode = "split";
+        renderViewer();
+        renderBottom();
+      }
+
+      async function toggleHistory() {
+        if (!historyOpen) {
+          const lane = await loadHistory();
+          if (!lane || lane.versions.length < 2) {
+            toast("This image has no earlier versions.");
+            return;
+          }
+        }
+        historyOpen = !historyOpen;
+        galleryOpen = false;
+        composerOpen = false;
+        compareOpen = false;
+        pinMode = false;
+        zoomed = false;
+        renderViewer();
+        renderBottom();
+      }
+
+      async function toggleGallery() {
+        historyOpen = false;
+        if (!galleryOpen) {
+          await loadGallery();
+          if (productGroup(currentItem()).length < 2) {
+            toast("Only one image for this product.");
+            return;
+          }
+        }
+        galleryOpen = !galleryOpen;
+        composerOpen = false;
+        compareOpen = false;
+        pinMode = false;
+        zoomed = false;
+        renderViewer();
+        renderBottom();
+      }
+
+      function cycleSlot(delta) {
+        const slots = slotsFor(currentItem());
+        if (slots.length < 2) return;
+        const index = Math.max(0, slots.findIndex((slot) => slot.key === leftSlot));
+        selectSlot((index + delta + slots.length) % slots.length);
+      }
+
+      function annotationPins(item) {
+        return reviewFor(item).annotations.map((annotation, index) => `<span class="pin" style="left:${annotation.x * 100}%;top:${annotation.y * 100}%" title="${escapeHtml(annotation.text || `Pin ${index + 1}`)}">${index + 1}</span>`).join("");
+      }
+
+      function resultLabel(item) { return item.before ? "Result" : "New image"; }
+
+      function truthStrip(item, slot) {
+        if (!truthStripOn || !slot || pinMode || composerOpen || compareOpen || galleryOpen) return "";
+
+        // On the prior version, the question is whether the requested change happened.
+        if (slot.kind === "before") {
+          if (!item.feedback?.length) return "";
+          const entries = truthExpanded ? item.feedback : item.feedback.slice(0, 3);
+          const hidden = item.feedback.length - entries.length;
+          return `<aside class="truth-strip asked"><h3>What was asked</h3><ul>${entries
+            .map((entry) => `<li><span class="source">${escapeHtml(entry.source)}</span>${escapeHtml(entry.text)}</li>`)
+            .join("")}</ul>${moreButton(hidden)}</aside>`;
+        }
+
+        // On a truth anchor, the question is whether the product still matches it,
+        // so lead with what this particular anchor is authoritative for.
+        if (slot.kind !== "identity") return "";
+        const facts = item.productTruth || [];
+        const entries = truthExpanded ? facts : facts.slice(0, 2);
+        const hidden = facts.length - entries.length;
+        const caption = slot.caption ? `<p class="strip-caption">${escapeHtml(slot.caption)}</p>` : "";
+        const list = entries.length ? `<ul>${entries.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}</ul>` : "";
+        if (!caption && !list) return "";
+        return `<aside class="truth-strip"><h3>${escapeHtml(slot.label)}${slot.origin ? `<em>${escapeHtml(slot.origin)}</em>` : ""}</h3>${caption}${list}${moreButton(hidden)}</aside>`;
+      }
+
+      function moreButton(hidden) {
+        if (truthExpanded) return '<button type="button" id="truth-more">Show less</button>';
+        return hidden > 0 ? `<button type="button" id="truth-more">+${hidden} more</button>` : "";
+      }
+
+      // Every image of one product, against one anchor. Identity drift is a
+      // cross-image question — six images agreeing and one disagreeing is only
+      // visible when they are on screen together.
+      function productGroup(item) {
+        const reviewable = new Map(project.items.map((entry, index) => [entry.id, index]));
+        const source = galleryItems || project.items;
+        // The server decides what counts as one product; fall back to the plain key
+        // when the sheet has not been fetched yet.
+        const mine = source.find((entry) => entry.id === item.id);
+        const key = mine?.group || String(item.sku || item.product || "").toLowerCase();
+        return source
+          .filter((entry) => (entry.group || String(entry.sku || entry.product || "").toLowerCase()) === key)
+          .map((entry) => ({
+            entry,
+            // An image from an earlier round is here for comparison only; it is not
+            // part of this round's review, so it carries no decision.
+            index: reviewable.has(entry.id) ? reviewable.get(entry.id) : -1,
+          }));
+      }
+
+      async function loadHistory() {
+        const item = currentItem();
+        if (historyLane?.itemId === item.id) return historyLane;
+        try {
+          const response = await fetch(`api/lane?item=${encodeURIComponent(item.id)}`, { cache: "no-store" });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || "Could not load history");
+          historyLane = { itemId: item.id, ...payload };
+          return historyLane;
+        } catch {
+          return null;
+        }
+      }
+
+      function renderHistory(item, slot) {
+        const lane = historyLane;
+        const anchor = slot
+          ? `<aside class="gallery-anchor"><img src="${escapeHtml(slot.src)}" alt="${escapeHtml(slot.label)}"><div class="gallery-anchor-copy"><strong>${escapeHtml(slot.label)}${slot.origin ? ` <em>${escapeHtml(slot.origin)}</em>` : ""}</strong>${slot.caption ? `<p>${escapeHtml(slot.caption)}</p>` : ""}</div></aside>`
+          : "";
+        const cards = (lane?.versions || []).map((version, index) => {
+          const asked = version.origin
+            ? "What the client gave feedback on"
+            : version.feedback?.[0]?.text || "";
+          const state = version.id === item.id ? " current" : pinnedVersion?.id === version.id ? " active" : "";
+          return `<button class="version${state}" type="button" data-version="${escapeHtml(version.id)}" title="Compare the result against ${escapeHtml(version.round)}"><span class="version-flow">${index + 1}</span><img loading="${index < 24 ? "eager" : "lazy"}" decoding="async" src="${escapeHtml(version.thumb || version.after)}" alt="${escapeHtml(version.round)}"><span class="version-copy"><strong>${escapeHtml(version.round)}${version.id === item.id ? " — reviewing" : ""}</strong><time>${escapeHtml(version.recordedAt ? String(version.recordedAt).slice(0, 10) : version.title || "starting point")}</time>${asked ? `<p>${escapeHtml(asked)}</p>` : ""}</span></button>`;
+        }).join("");
+        return `<div class="gallery"${slot ? "" : ' style="grid-template-columns:minmax(0,1fr)"'}>${anchor}<div class="gallery-grid">${cards}</div></div><span class="mode-label">${escapeHtml(lane?.slot || item.assetSlot)} · ${(lane?.versions || []).length} version${(lane?.versions || []).length === 1 ? "" : "s"} over time</span>`;
+      }
+
+      async function loadGallery() {
+        if (galleryItems) return;
+        try {
+          const response = await fetch("api/gallery", { cache: "no-store" });
+          const payload = await response.json();
+          if (response.ok && Array.isArray(payload.items)) galleryItems = payload.items;
+        } catch {
+          // The round-scoped items are still a usable sheet.
+        }
+      }
+
+      function renderGallery(item, slot) {
+        const group = productGroup(item);
+        const anchor = slot
+          ? `<aside class="gallery-anchor"><img src="${escapeHtml(slot.src)}" alt="${escapeHtml(slot.label)}"><div class="gallery-anchor-copy"><strong>${escapeHtml(slot.label)}${slot.origin ? ` <em>${escapeHtml(slot.origin)}</em>` : ""}</strong>${slot.caption ? `<p>${escapeHtml(slot.caption)}</p>` : ""}</div></aside>`
+          : "";
+        const tiles = group.map(({ entry, index }, position) => {
+          const review = index >= 0 ? reviewFor(project.items[index]) : null;
+          const dot = review?.decision === "Approved" ? "approved" : review?.decision === "Needs work" ? "needs" : "";
+          const name = entry.assetSlot || entry.title;
+          const hint = index >= 0 ? entry.title : `${entry.title} — not in this round`;
+          return `<button class="tile${index === current ? " current" : ""}${index < 0 ? " other-round" : ""}" type="button" ${index >= 0 ? `data-goto="${index}"` : "disabled"} title="${escapeHtml(hint)}"><img loading="${position < 24 ? "eager" : "lazy"}" decoding="async" src="${escapeHtml(entry.thumb || entry.after)}" alt="${escapeHtml(entry.title)}"><span class="tile-copy"><strong>${escapeHtml(name)}</strong><i class="tile-dot ${dot}"></i></span></button>`;
+        }).join("");
+        return `<div class="gallery"${slot ? "" : ' style="grid-template-columns:minmax(0,1fr)"'}>${anchor}<div class="gallery-grid">${tiles}</div></div><span class="mode-label">${escapeHtml(item.product)} · ${group.length} image${group.length === 1 ? "" : "s"}${slot ? ` vs ${escapeHtml(slot.label)}` : ""}</span>`;
+      }
+
+      function renderViewer() {
+        const item = currentItem();
+        const slot = activeSlot(item);
+        if (!slot) viewMode = "after";
+        const viewer = document.getElementById("viewer");
+        if (historyOpen) {
+          viewer.className = "viewer";
+          viewer.innerHTML = renderHistory(item, slot);
+          viewer.querySelectorAll("[data-version]").forEach((card) => card.addEventListener("click", () => {
+            const version = historyLane.versions.find((entry) => entry.id === card.dataset.version);
+            if (!version) return;
+            historyOpen = false;
+            if (version.id === item.id) { renderViewer(); renderBottom(); return; }
+            pinnedVersion = { itemId: item.id, id: version.id, round: version.round, recordedAt: version.recordedAt, src: version.after };
+            leftSlot = "version";
+            viewMode = "split";
+            renderViewer();
+            renderBottom();
+          }));
+          return;
+        }
+        if (galleryOpen) {
+          viewer.className = "viewer";
+          viewer.innerHTML = renderGallery(item, slot);
+          viewer.querySelectorAll("[data-goto]").forEach((tile) => tile.addEventListener("click", () => {
+            galleryOpen = false;
+            goTo(Number(tile.dataset.goto), { keepSlot: true });
+          }));
+          return;
+        }
+        if (viewMode === "split") {
+          viewer.className = `viewer${pinMode ? " pin-mode" : ""}`;
+          viewer.innerHTML = `<div class="split-view"><div class="split-pane"><img src="${escapeHtml(slot.src)}" alt="${escapeHtml(slot.label)}: ${escapeHtml(item.title)}"><span class="mode-label">${escapeHtml(slot.label)}</span></div><div class="split-pane" id="pin-target"><img src="${escapeHtml(item.after)}" alt="Result: ${escapeHtml(item.title)}"><span class="mode-label">${escapeHtml(resultLabel(item))}</span><div class="annotation-layer">${annotationPins(item)}</div></div></div>${truthStrip(item, slot)}${pinMode ? '<div class="pin-hint">Click the result to place a note</div>' : ""}`;
+        } else {
+          const leftImage = slot ? `<img class="before-layer" src="${escapeHtml(slot.src)}" alt="${escapeHtml(slot.label)}: ${escapeHtml(item.title)}">` : "";
+          const label = viewMode === "after"
+            ? resultLabel(item)
+            : viewMode === "before"
+              ? slot.label
+              : viewMode === "diff"
+                ? `Difference · ${slot.label}`
+                : `${slot.label} / result`;
+          viewer.className = `viewer mode-${viewMode}${pinMode ? " pin-mode" : ""}`;
+          viewer.innerHTML = `<div class="media-layer${zoomed ? " zoomed" : ""}" id="media-layer">${leftImage}<img class="after-layer" src="${escapeHtml(item.after)}" alt="${escapeHtml(resultLabel(item))}: ${escapeHtml(item.title)}"></div><div class="annotation-layer">${annotationPins(item)}</div>${viewMode === "swipe" ? `<div class="swipe-divider" style="left:${swipe}%"></div><div class="swipe-hit" id="swipe-hit"></div>` : ""}<span class="mode-label">${escapeHtml(label)}</span>${truthStrip(item, slot)}${pinMode ? '<div class="pin-hint">Click the image to place a note</div>' : ""}`;
+        }
+        const target = document.getElementById("pin-target") || viewer;
+        target.addEventListener("click", placePin);
+        target.addEventListener("dblclick", (event) => { if (!pinMode) { event.preventDefault(); zoomed = !zoomed; renderViewer(); } });
+        const swipeHit = document.getElementById("swipe-hit");
+        if (swipeHit) bindSwipe(swipeHit, viewer);
+        const truthMore = document.getElementById("truth-more");
+        if (truthMore) {
+          truthMore.addEventListener("dblclick", (event) => event.stopPropagation());
+          truthMore.addEventListener("click", (event) => {
+            event.stopPropagation();
+            truthExpanded = !truthExpanded;
+            renderViewer();
+          });
+        }
+      }
+
+      function bindSwipe(hit, viewer) {
+        const update = (event) => {
+          const rect = hit.getBoundingClientRect();
+          swipe = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+          const after = viewer.querySelector(".after-layer");
+          const divider = viewer.querySelector(".swipe-divider");
+          if (after) after.style.clipPath = `inset(0 ${100 - swipe}% 0 0)`;
+          if (divider) divider.style.left = `${swipe}%`;
+        };
+        hit.addEventListener("pointerdown", (event) => { hit.setPointerCapture(event.pointerId); update(event); });
+        hit.addEventListener("pointermove", (event) => { if (hit.hasPointerCapture(event.pointerId)) update(event); });
+      }
+
+      function placePin(event) {
+        if (!pinMode) return;
+        event.preventDefault();
+        const rect = event.currentTarget.getBoundingClientRect();
+        const review = reviewFor(currentItem());
+        const slot = activeSlot();
+        review.annotations.push({
+          id: `${currentItem().id}-pin-${Date.now()}`,
+          x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+          y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
+          text: "",
+          against: slot && viewMode !== "after" ? slot.label : "",
+        });
+        pinMode = false;
+        scheduleSave();
+        renderViewer();
+        renderComposer();
+        setTimeout(() => document.querySelector(".pin-row:last-child textarea")?.focus(), 0);
+      }
+
+      function renderBottom() {
+        const item = currentItem();
+        const review = reviewFor(item);
+        const compare = document.getElementById("compare");
+        const slot = activeSlot(item);
+        compare.disabled = !slot;
+        compare.textContent = viewMode === "after" || !slot
+          ? "Compare"
+          : viewMode === "before" ? slot.label : viewMode[0].toUpperCase() + viewMode.slice(1);
+        compare.title = slot ? `Comparing against ${slot.label}` : "Nothing to compare against";
+        document.getElementById("approve").setAttribute("aria-pressed", String(review.decision === "Approved"));
+        document.getElementById("change").setAttribute("aria-pressed", String(review.decision === "Needs work" || composerOpen));
+        document.getElementById("previous").disabled = project.items.length < 2;
+        document.getElementById("next").disabled = project.items.length < 2;
+        renderCompareMenu();
+        renderComposer();
+      }
+
+      function renderCompareMenu() {
+        const menu = document.getElementById("compare-menu");
+        const item = currentItem();
+        const slots = slotsFor(item);
+        const slot = activeSlot(item);
+        menu.hidden = !compareOpen || !slot;
+        if (menu.hidden) return;
+        const slotRow = slots.length > 1
+          ? `<div class="compare-row"><span class="compare-legend">Against</span>${slots.map((entry, index) => `<button type="button" class="${entry.kind}${entry.kind === "identity" && entry.origin === "This image" ? " own" : ""}" data-slot="${escapeHtml(entry.key)}" aria-pressed="${entry.key === slot.key}" title="${escapeHtml([entry.origin, entry.caption].filter(Boolean).join(" — ") || entry.label)}">${escapeHtml(entry.label)}${index < 9 ? ` <span style="opacity:.5">${index + 1}</span>` : ""}</button>`).join("")}</div>`
+          : "";
+        const modes = [["after", resultLabel(item)], ["before", slot.label], ["swipe", "Swipe"], ["split", "Split"], ["diff", "Diff"]];
+        menu.innerHTML = `${slotRow}<div class="compare-row"><span class="compare-legend">View</span>${modes.map(([mode, label]) => `<button type="button" data-mode="${mode}" aria-pressed="${viewMode === mode}">${escapeHtml(label)}</button>`).join("")}</div>`;
+        menu.querySelector('[data-slot][aria-pressed="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+        menu.querySelectorAll("[data-slot]").forEach((button) => button.addEventListener("click", () => {
+          leftSlot = button.dataset.slot;
+          truthExpanded = false;
+          if (viewMode === "after") viewMode = "split";
+          renderViewer();
+          renderBottom();
+        }));
+        menu.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => {
+          viewMode = button.dataset.mode;
+          galleryOpen = false;
+          historyOpen = false;
+          compareOpen = false;
+          renderViewer();
+          renderBottom();
+        }));
+      }
+
+      function toggleComposer() {
+        composerOpen = !composerOpen;
+        compareOpen = false;
+        pinMode = false;
+        if (composerOpen) { galleryOpen = false; historyOpen = false; }
+        // Split keeps the comparison on screen while the note is written; the pin
+        // target stays the result pane, so coordinates remain unambiguous.
+        if (composerOpen && viewMode !== "split") viewMode = "after";
+        renderBottom();
+        renderViewer();
+        if (composerOpen) setTimeout(() => document.getElementById("notes")?.focus(), 0);
+      }
+
+      function renderComposer() {
+        const composer = document.getElementById("composer");
+        composer.hidden = !composerOpen;
+        if (!composerOpen) return;
+        const review = reviewFor(currentItem());
+        composer.innerHTML = `
+          <div class="composer-head"><strong>What should change?</strong><span>One clear note is enough.</span></div>
+          <textarea id="notes" maxlength="10000" placeholder="Describe the change…">${escapeHtml(review.notes)}</textarea>
+          <div class="pin-list">${review.annotations.map((annotation, index) => `<div class="pin-row"><span class="pin-number">${index + 1}</span><div>${annotation.against ? `<span class="pin-context">Compared against ${escapeHtml(annotation.against)}</span>` : ""}<textarea data-pin-note="${index}" placeholder="What should change here?">${escapeHtml(annotation.text)}</textarea></div><button class="delete-pin" data-delete-pin="${index}" type="button" aria-label="Delete pin ${index + 1}">×</button></div>`).join("")}</div>
+          <div class="composer-actions"><button class="soft-button" id="add-pin" type="button">${pinMode ? "Cancel pin" : "+ Pin area"}</button><span class="spacer"></span><button class="soft-button" id="cancel-change" type="button">Cancel</button><button class="primary-button" id="save-change" type="button">Save & next</button></div>
+        `;
+        document.getElementById("notes").addEventListener("input", (event) => { review.notes = event.target.value; scheduleSave(); });
+        document.getElementById("add-pin").addEventListener("click", () => { pinMode = !pinMode; renderComposer(); renderViewer(); });
+        document.getElementById("cancel-change").addEventListener("click", toggleComposer);
+        document.getElementById("save-change").addEventListener("click", saveChanges);
+        composer.querySelectorAll("[data-pin-note]").forEach((textarea) => textarea.addEventListener("input", (event) => { review.annotations[Number(event.target.dataset.pinNote)].text = event.target.value; scheduleSave(); }));
+        composer.querySelectorAll("[data-delete-pin]").forEach((button) => button.addEventListener("click", () => {
+          review.annotations.splice(Number(button.dataset.deletePin), 1);
+          scheduleSave();
+          renderComposer();
+          renderViewer();
+        }));
+      }
+
+      function saveChanges() {
+        const item = currentItem();
+        const review = reviewFor(item);
+        const valid = Boolean(review.notes.trim() || review.annotations.some((annotation) => annotation.text.trim()));
+        if (!valid) {
+          document.getElementById("notes").classList.add("invalid");
+          document.getElementById("notes").focus();
+          toast("Add a note or pin first.");
+          return;
+        }
+        review.decision = "Needs work";
+        composerOpen = false;
+        pinMode = false;
+        scheduleSave();
+        renderAll();
+        if (project.items.length > 1) setTimeout(() => navigate(1), 120);
+      }
+
+      function approveCurrent() {
+        const review = reviewFor(currentItem());
+        review.decision = "Approved";
+        if (galleryOpen) toast(`Approved ${currentItem().title}`);
+        composerOpen = false;
+        compareOpen = false;
+        pinMode = false;
+        scheduleSave();
+        renderAll();
+        if (project.items.length > 1) setTimeout(() => navigate(1), 120);
+      }
+
+      function issueCount(item) {
+        return item.preflight.checks.filter((check) => check.status === "warn" || check.status === "fail").length;
+      }
+
+      function renderHeader() {
+        const item = currentItem();
+        const value = progress();
+        document.getElementById("item-title").textContent = `${item.product} — ${item.title}`;
+        document.getElementById("item-subtitle").textContent = `${item.channel}${item.market ? ` · ${item.market}` : ""} · ${item.assetSlot} · ${current + 1}/${project.items.length}`;
+        const issues = issueCount(item);
+        const copy = document.getElementById("check-copy");
+        copy.textContent = issues ? `${issues} check${issues === 1 ? "" : "s"}` : "Details";
+        document.getElementById("check-dot").classList.toggle("complete", !issues);
+        const submit = document.getElementById("submit");
+        submit.hidden = value.completed === 0;
+        submit.textContent = submittedAt ? "Sent" : "Send to Codex";
+        submit.disabled = Boolean(submittedAt);
+        submit.title = value.completed === value.total
+          ? "Send the complete review to Codex"
+          : `Send ${value.completed} reviewed item${value.completed === 1 ? "" : "s"} to Codex; ${value.total - value.completed} undecided item${value.total - value.completed === 1 ? "" : "s"} will remain untouched`;
+        submit.setAttribute("aria-label", submit.title);
+        document.getElementById("queue").title = `${value.completed} of ${value.total} reviewed`;
+      }
+
+      function feedbackList(item) {
+        return `<ul class="brief-list">${item.feedback.map((entry) => `<li><span class="source">${escapeHtml(entry.source)}</span>${escapeHtml(entry.text)}</li>`).join("")}</ul>`;
+      }
+
+      function renderDetails() {
+        const item = currentItem();
+        const issues = issueCount(item);
+        const anchors = item.references.filter((reference) => reference.role === "identity" && reference.kind === "image");
+        const examples = item.references.filter((reference) => !(reference.role === "identity" && reference.kind === "image"));
+        const slot = activeSlot(item);
+        const identity = anchors.length ? `<section class="drawer-section"><h2>Product truth anchors</h2><div class="references">${anchors.map((reference) => `<button class="reference identity" type="button" data-slot="identity:${reference.index}" aria-pressed="${slot?.key === `identity:${reference.index}`}" title="${escapeHtml(reference.caption || "Compare the result against this")}"><img src="${escapeHtml(reference.image)}" alt=""><span>${escapeHtml(slotLabel(reference.label))}</span></button>`).join("")}</div></section>` : "";
+        const references = examples.length ? `<section class="drawer-section"><h2>References</h2><div class="references">${examples.map((reference) => reference.kind === "image" ? `<button class="reference" type="button" data-reference="${reference.index}"><img src="${escapeHtml(reference.image)}" alt=""><span>${escapeHtml(reference.label)}</span></button>` : `<a class="reference" href="${escapeHtml(reference.url)}" target="_blank" rel="noreferrer"><span>${escapeHtml(reference.label)}</span></a>`).join("")}</div></section>` : "";
+        const truth = item.productTruth?.length ? `<section class="drawer-section"><h2>Must stay true</h2><ul class="truth-list">${item.productTruth.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}</ul></section>` : "";
+        document.getElementById("details").innerHTML = `
+          <section class="drawer-section"><h2>Requested</h2>${feedbackList(item)}</section>
+          ${truth}
+          ${identity}
+          <section class="drawer-section"><h2>Codex QA</h2><p class="qa-copy">${escapeHtml(item.finding)}</p></section>
+          <section class="drawer-section"><h2>${escapeHtml(item.preflight.profile.label)}</h2><div class="check-summary"><span>Automated preflight</span><strong class="${issues ? "issue" : "pass"}">${issues ? `${issues} to review` : "Passed"}</strong></div><details><summary>Show technical checks</summary><div class="check-list">${item.preflight.checks.map((check) => `<div class="check ${escapeHtml(check.status)}" title="${escapeHtml(check.detail)}"><i></i><strong>${escapeHtml(check.label)}</strong><span>${escapeHtml(check.value)}</span></div>`).join("")}</div></details></section>
+          ${references}
+        `;
+        const drawer = document.getElementById("details");
+        drawer.querySelectorAll("[data-reference]").forEach((button) => button.addEventListener("click", () => openReference(Number(button.dataset.reference))));
+        drawer.querySelectorAll("[data-slot]").forEach((button) => button.addEventListener("click", () => {
+          leftSlot = button.dataset.slot;
+          truthExpanded = false;
+          viewMode = "split";
+          toggleLayer("details-layer", false);
+          renderViewer();
+          renderBottom();
+        }));
+      }
+
+      function renderQueue() {
+        document.getElementById("queue-grid").innerHTML = project.items.map((item, index) => {
+          const review = reviewFor(item);
+          const statusClass = review.decision === "Approved" ? "approved" : review.decision === "Needs work" ? "needs" : "";
+          const status = complete(item) ? review.decision : review.decision === "Needs work" ? "Add feedback" : "Not reviewed";
+          return `<button class="queue-item ${index === current ? "current" : ""}" data-item="${index}" type="button"><img loading="lazy" decoding="async" src="${escapeHtml(item.thumb || item.after)}" alt=""><span class="queue-copy"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.channel)} · ${escapeHtml(item.assetSlot)}</span><em class="status ${statusClass}">${escapeHtml(status)}</em></span></button>`;
+        }).join("");
+        document.querySelectorAll("[data-item]").forEach((button) => button.addEventListener("click", () => goTo(Number(button.dataset.item))));
+      }
+
+      function toggleLayer(id, open) {
+        const layer = document.getElementById(id);
+        if (!layer) return;
+        layer.classList.toggle("open", open);
+        layer.setAttribute("aria-hidden", String(!open));
+        if (open && id === "details-layer") renderDetails();
+        if (open && id === "queue-layer") renderQueue();
+      }
+
+      function openReference(index) {
+        const item = currentItem();
+        const reference = item.references[index];
+        if (!reference || reference.kind !== "image") return;
+        document.getElementById("reference-image").src = reference.image;
+        document.getElementById("reference-image").alt = reference.label;
+        document.getElementById("reference-caption").textContent = reference.caption ? `${reference.label} — ${reference.caption}` : reference.label;
+        document.getElementById("reference-result").src = item.after;
+        document.getElementById("reference-result").alt = `Current result: ${item.title}`;
+        toggleLayer("reference-layer", true);
+      }
+
+      async function submitReview() {
+        const value = progress();
+        if (value.completed === 0) return;
+        const button = document.getElementById("submit");
+        button.disabled = true;
+        button.textContent = "Sending…";
+        try {
+          const response = await fetch("api/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reviews }) });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Could not submit review");
+          submittedAt = new Date().toISOString();
+          renderHeader();
+          toast(result.partial ? result.message : "Review sent. Return to Codex and say “Apply the QA.”");
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = "Send to Codex";
+          toast(error.message);
+        }
+      }
+
+      function renderAll() {
+        renderHeader();
+        renderViewer();
+        renderBottom();
+      }
+
+      async function refreshProject(options) {
+        const announce = options?.announce !== false;
+        if (dirty || composerOpen || pinMode) {
+          pendingRefresh = true;
+          if (announce) toast("New results are ready. Finish this note to refresh.");
+          return;
+        }
+        try {
+          const currentId = currentItem()?.id;
+          const previousManifest = project?.manifestSha256;
+          const response = await fetch("api/review", { cache: "no-store" });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || "Could not refresh review");
+          const changed = payload.project.manifestSha256 !== previousManifest;
+          const reset = payload.droppedReviews || [];
+          if (!changed && resetKey(reset) === reportedReset && !announce) return;
+          project = payload.project;
+          reviews = payload.state?.reviews || {};
+          submittedAt = payload.state?.submittedAt || null;
+          const sameItem = project.items.findIndex((item) => item.id === currentId);
+          const firstIncomplete = project.items.findIndex((item) => !complete(item));
+          current = sameItem >= 0 ? sameItem : firstIncomplete < 0 ? 0 : firstIncomplete;
+          if (sameItem < 0) {
+            resetSlot(currentItem());
+            viewMode = defaultViewMode(currentItem());
+          }
+          renderAll();
+          if (reset.length) reportReset(reset);
+          else if (changed) toast("Review updated.");
+        } catch (error) {
+          if (announce) toast(error.message);
+        }
+      }
+
+      // Every board shares one loopback origin, and a browser allows only six
+      // connections to it. A live-update stream is permanent, so a hidden board
+      // holding one starves image requests in every other board. Hidden boards
+      // release the socket and catch up when they are looked at again.
+      function connectLiveUpdates(board) {
+        if (!board?.id || typeof EventSource === "undefined") return;
+        liveBoardId = board.id;
+        openLiveStream();
+        document.addEventListener("visibilitychange", syncLiveStream);
+        window.addEventListener("focus", syncLiveStream);
+        setInterval(() => {
+          if (document.visibilityState === "hidden") return;
+          if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+            eventSource = null;
+            releaseStreamSlot?.();
+            releaseStreamSlot = null;
+          }
+          if (!eventSource && !pollTimer) claimStreamSlot();
+          refreshProject({ announce: false });
+        }, RECONCILE_MS);
+        window.addEventListener("pagehide", closeLiveStream, { once: true });
+      }
+
+      // Boards share one origin and a browser allows six connections to it, so a
+      // live stream — which is held open forever — is a scarce resource. Tabs claim
+      // one of a few stream slots through a cross-tab lock; whoever misses out polls
+      // instead, which returns its connection immediately. However many boards are
+      // open, images always have connections left.
+      function claimStreamSlot(index = 0) {
+        if (index >= STREAM_SLOTS) return startPolling();
+        navigator.locks.request(`commerce-qa-live-${index}`, { ifAvailable: true }, (lock) => {
+          if (!lock) return claimStreamSlot(index + 1);
+          if (!liveBoardId || document.visibilityState === "hidden") return;
+          stopPolling();
+          openStream();
+          return new Promise((resolve) => { releaseStreamSlot = resolve; });
+        }).catch(startPolling);
+      }
+
+      function openStream() {
+        if (eventSource) return;
+        eventSource = new EventSource("api/events");
+        eventSource.addEventListener("board-updated", refreshProject);
+        eventSource.addEventListener("error", () => {
+          if (eventSource?.readyState !== EventSource.CLOSED) return;
+          eventSource = null;
+          releaseStreamSlot?.();
+          releaseStreamSlot = null;
+          startPolling();
+        });
+      }
+
+      function startPolling() {
+        if (pollTimer || !liveBoardId) return;
+        pollTimer = setInterval(() => {
+          if (document.visibilityState === "hidden") return;
+          refreshProject({ announce: false });
+          // A slot may have been freed by a board that was closed since.
+          if (!eventSource) claimStreamSlot();
+        }, POLL_MS);
+      }
+
+      function stopPolling() {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+
+      function openLiveStream() {
+        if (!liveBoardId || eventSource) return;
+        if (!navigator.locks?.request) return openStream();
+        claimStreamSlot();
+      }
+
+      function closeLiveStream() {
+        eventSource?.close();
+        eventSource = null;
+        stopPolling();
+        releaseStreamSlot?.();
+        releaseStreamSlot = null;
+      }
+
+      function syncLiveStream() {
+        if (document.visibilityState === "hidden") {
+          closeLiveStream();
+          missedWhileHidden = true;
+          return;
+        }
+        openLiveStream();
+        if (!missedWhileHidden) return;
+        missedWhileHidden = false;
+        refreshProject({ announce: false });
+      }
+
+      async function start() {
+        try {
+          const response = await fetch("api/review", { cache: "no-store" });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || "Could not load review");
+          project = payload.project;
+          reviews = payload.state?.reviews || {};
+          submittedAt = payload.state?.submittedAt || null;
+          const firstIncomplete = project.items.findIndex((item) => !complete(item));
+          current = firstIncomplete < 0 ? 0 : firstIncomplete;
+          resetSlot(currentItem());
+          viewMode = defaultViewMode(currentItem());
+          renderShell();
+          renderAll();
+          connectLiveUpdates(payload.board);
+          if (payload.missingItems?.length) {
+            toast(`${payload.missingItems.length} image${payload.missingItems.length === 1 ? " is" : "s are"} missing from disk and were left out of this review.`);
+          } else if (payload.droppedReviews?.length) reportReset(payload.droppedReviews);
+          else if (payload.staleItems?.length) toast(`${payload.staleItems.length} changed image${payload.staleItems.length === 1 ? "" : "s"} need review again.`);
+        } catch (error) {
+          root.className = "error";
+          root.innerHTML = `<h1>Review could not load</h1><p>${escapeHtml(error.message)}</p><p>Keep the local review server running, then reload.</p>`;
+        }
+      }
+
+      start();
+    })();
+  </script>
+</body>
+</html>
