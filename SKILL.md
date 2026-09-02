@@ -21,7 +21,7 @@ Before generation or revision, identify what is known about:
 
 Register what is known once per SKU (see below) so every later image inherits the same invariants and truth photos. Never silently invent missing product facts. Preserve the actual source product in channel-constrained imagery. In particular, treat an Amazon main image as photo enhancement/retouching of the actual product, not a speculative product mockup. Verify current official channel requirements before claiming an asset is publish-ready; category rules may override general rules.
 
-Separate mechanical preflight from visual judgment. Dimensions, file type, file size, and measurable background/framing checks may be automated. SKU identity, label fidelity, included items, claims, unrequested changes, and reference alignment require explicit visual QA. A machine pass is not user approval.
+Spend visual attention where it decides something. Inspect source imagery closely when establishing what a product actually is — that is where a wrong variant, a superseded component or a misfiled original gets caught, and it is a handful of images per SKU. Do not open generated outputs to compose a verdict on each one: preflight already measures every output automatically, and the board exists so the reviewer makes the visual judgment on a screen built for it. Look at a generated output only when there is a specific reason — preflight flagged it, the client named a defect in it, or it is the first render of a new concept. Recording an image is not approving it, and a machine pass is not user approval.
 
 ## Register product truth once per SKU
 
@@ -73,7 +73,7 @@ Use one command after each reviewable generation. It records the output, starts 
   --after "<project-relative result>" \
   --client-feedback "<exact client wording>" \
   --internal-feedback "<exact user/team wording>" \
-  --finding "<concise evidence-based QA result>" \
+  --finding "<what this render changed and which invariants it had to hold>" \
   --status "Ready"
 ```
 
@@ -91,7 +91,7 @@ call. Group one file per product and round; that is where the shared block earns
   "defaults": {
     "product": "<product name>", "sku": "<SKU>",
     "channel": "Amazon", "market": "US", "round": "R3",
-    "finding": "<QA result that applies to the round>"
+    "finding": "<what this round changed and which invariants it had to hold>"
   },
   "items": [
     { "assetSlot": "MAIN", "title": "Main", "after": "out/main.png",
@@ -184,7 +184,8 @@ Require `contract: "passed"`, an empty `staleItems` array, and output below 2 MB
 - Preserve exact feedback wording and distinguish Client, Internal, and Codex sources.
 - Let the recorder resolve `before`. Its reply reports `beforeSource` (`derived`, `explicit` or `none`) and the `parentId` it linked; check that rather than assuming.
 - Never infer pairs from filenames. An explicit `--before` that is not the slot's newest version is recorded as a chosen baseline and shown as one, not as lineage.
-- Register SKU truth before recording the first image of a product, so identity is reviewable from round one.
+- Register SKU truth before recording the first image of a product, so identity is reviewable from round one. This is the step that deserves close visual inspection of the originals.
+- State in `finding` what the render was asked to change and what it had to preserve. It is a record of intent for the reviewer, not a claim that the output was visually verified.
 - Treat `--identity` as fact and `--reference` as taste. Never register a generated or speculative rendering as product truth.
 - Re-register a truth photo only when the real product changed; replacing one deliberately invalidates decisions made against the old truth.
 - Treat one output created from several notes as one revision with several feedback entries.
