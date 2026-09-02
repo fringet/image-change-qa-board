@@ -79,6 +79,40 @@ Use one command after each reviewable generation. It records the output, starts 
 
 Omit `--board` after the first call; durable board identity is stored in `<project>/.image-change-qa/board.json`. Do not pass `--before` for an ordinary revision: an asset slot is a lane, and the recorder links each new version to the newest existing version of the same product and slot by itself. Pass `--before` only to compare against a deliberately chosen earlier version, and `--no-before` only when the image is genuinely from scratch even though the slot has history. Keep `--asset-slot` stable across rounds (`MAIN`, `PT01` … `PT08`); it is what identifies the lane. Omit `--product-truth` and `--identity` once the SKU is registered; both are inherited. Omit unused feedback-source flags. Repeat `--product-truth` for every known invariant and repeat a feedback flag for multiple notes. `--request` plus optional `--source` remains supported for compatibility. Use `--no-open` only when the user asks to keep generating without review.
 
+## Record a whole round in one pass
+
+One image per command means one process, one lock and a full set of repeated flags
+for every image. For a round of more than two or three images, write a batch file
+instead — shared facts once, only what differs per image — and record it in a single
+call. Group one file per product and round; that is where the shared block earns most.
+
+```json
+{
+  "defaults": {
+    "product": "<product name>", "sku": "<SKU>",
+    "channel": "Amazon", "market": "US", "round": "R3",
+    "finding": "<QA result that applies to the round>"
+  },
+  "items": [
+    { "assetSlot": "MAIN", "title": "Main", "after": "out/main.png",
+      "feedback": [{ "source": "Client", "text": "<exact wording>" }] },
+    { "assetSlot": "PT01", "title": "PT01", "after": "out/pt01.png",
+      "feedback": [{ "source": "Client", "text": "<exact wording>" }],
+      "finding": "<override where this image differs>" }
+  ]
+}
+```
+
+```bash
+"<skill-dir>/scripts/commerce-qa" add --project "<project-root>" --batch "<batch file>"
+```
+
+Any default can be overridden per item. `before` is resolved per item exactly as it is
+for a single recording, including chaining to versions added earlier in the same batch;
+`"noBefore": true` marks an item as from scratch. `identity` and `references` accept the
+same entries as their flags. The reply reports how many were recorded and how their
+`before` resolved, instead of one response per image.
+
 For visual examples, save important references in the project and repeat:
 
 ```bash

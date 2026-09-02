@@ -53,6 +53,20 @@ async function atomicWriteJson(filePath, value) {
   await fs.rename(temporary, filePath);
 }
 
+// A project's worth of images used to mean one process, one lock and one long
+// command per image. A batch file states the shared facts once and lists only what
+// differs, then everything is recorded in a single pass.
+const batchPath = value("--batch");
+if (batchPath) {
+  const { recordBatch } = await import("./record-batch.mjs");
+  const summary = await recordBatch({
+    projectRoot: path.resolve(value("--project", true)),
+    batchPath: path.resolve(value("--project", true), batchPath),
+  });
+  console.log(JSON.stringify(summary));
+  process.exit(0);
+}
+
 const projectRoot = path.resolve(value("--project", true));
 const manifestPath = path.join(projectRoot, ".image-change-qa/manifest.json");
 const product = value("--product", true);
